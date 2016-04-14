@@ -3,13 +3,25 @@ const https = require('https');
 const url = require('url');
 const cp = require('child_process');
 
+function c () {
+  var args = Array.prototype.slice.call(arguments);
+  var method = args.shift();
+  args.unshift(new Date().toISOString());
+  console[method].apply(this, args);
+}
+
+const log = c.bind(this, 'log');
+const err = c.bind(this, 'error');
+
 function reply (res, code) {
+  var msg = http.STATUS_CODES[code];
+  log(`response ${code} ${msg}`);
   res.writeHead(code);
-  res.end(http.STATUS_CODES[code]);
+  res.end(msg);
 }
 
 function validate (u, state, cb) {
-  console.log('validating webhook...');
+  log('validating webhook', u, state);
   const cbUrl = url.parse(u);
 
   const req = https.request({
@@ -26,7 +38,8 @@ function validate (u, state, cb) {
   req.end();
 }
 
-http.createServer(function (req, res) {
+const server = http.createServer(function (req, res) {
+  log(`request ${req.method} ${req.url}`);
   if (req.method === 'POST') {
     const parsedUrl = url.parse(req.url, true);
 
@@ -41,7 +54,7 @@ http.createServer(function (req, res) {
         try {
           const payload = JSON.parse(body);
           if (payload.repository.repo_name === process.env.DHH_REPO && payload.push_data.tag === process.env.DHH_TAG) {
-            console.log('executing command...');
+            log('executing command');
             cp.exec(process.env.DHH_CMD, {
               cwd: process.env.DHH_CWD
             }, function (err, stdout, stderr) {
@@ -49,19 +62,19 @@ http.createServer(function (req, res) {
               var code = 200;
 
               if (err) {
-                console.error(err);
+                err(err);
                 state = 'failure';
                 code = 500;
               } else {
-                console.log(stdout);
-                console.log(stderr);
+                log(stdout);
+                log(stderr);
               }
 
               validate(payload.callback_url, state, (err, statusCode) => {
                 if (err) {
-                  console.error(err);
+                  err(err);
                 }
-                console.log(`webhook callback response: ${statusCode}`);
+                log(`webhook callback response: ${statusCode}`);
                 reply(res, code);
               });
             });
@@ -69,18 +82,18 @@ http.createServer(function (req, res) {
             throw new Error('Mismatched repo or tag in payload');
           }
         } catch (e) {
-          console.error(e);
+          err(e);
           reply(res, 400);
         }
       });
     } else {
-      console.log(`Ignoring ${req.method} ${req.url}`);
       reply(res, 404);
     }
   } else {
-    console.log(`Ignoring ${req.method} ${req.url}`);
     reply(res, 404);
   }
-}).listen(process.env.DHH_PORT, () => {
-  console.log('Server listening...');
+});
+
+server.listen(process.env.DHH_PORT, () => {
+  log('Server listening on ', JSON.stringify(server.address()));
 });

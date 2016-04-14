@@ -1,4 +1,4 @@
-# docker-hub-hook
+# docker-hub-hook [![Build Status](https://travis-ci.org/jsperf/docker-hub-hook.svg?branch=master)](https://travis-ci.org/jsperf/docker-hub-hook)
 Webhook for Docker Hub Automated Builds
 
 ## Environment Variables
