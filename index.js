@@ -11,7 +11,7 @@ function c () {
 }
 
 const log = c.bind(this, 'log');
-const err = c.bind(this, 'error');
+const error = c.bind(this, 'error');
 
 function reply (res, code) {
   var msg = http.STATUS_CODES[code];
@@ -62,7 +62,7 @@ const server = http.createServer(function (req, res) {
               var code = 200;
 
               if (err) {
-                err(err);
+                error(err);
                 state = 'failure';
                 code = 500;
               } else {
@@ -72,7 +72,7 @@ const server = http.createServer(function (req, res) {
 
               validate(payload.callback_url, state, (err, statusCode) => {
                 if (err) {
-                  err(err);
+                  error(err);
                 }
                 log(`webhook callback response: ${statusCode}`);
                 reply(res, code);
@@ -82,7 +82,7 @@ const server = http.createServer(function (req, res) {
             throw new Error('Mismatched repo or tag in payload');
           }
         } catch (e) {
-          err(e);
+          error(e);
           reply(res, 400);
         }
       });
