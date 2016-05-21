@@ -10,18 +10,20 @@ function c () {
   console[method].apply(this, args);
 }
 
-const log = c.bind(this, 'log');
-const error = c.bind(this, 'error');
+const logger = {
+  info: c.bind(this, 'log'),
+  error: c.bind(this, 'error')
+};
 
 function reply (res, code) {
   var msg = http.STATUS_CODES[code];
-  log(`response ${code} ${msg}`);
+  logger.info(`response ${code} ${msg}`);
   res.writeHead(code);
   res.end(msg);
 }
 
 function validate (u, state, cb) {
-  log('validating webhook', u, state);
+  logger.info('validating webhook', u, state);
   const cbUrl = url.parse(u);
 
   const req = https.request({
@@ -39,7 +41,7 @@ function validate (u, state, cb) {
 }
 
 const server = http.createServer(function (req, res) {
-  log(`request ${req.method} ${req.url}`);
+  logger.info(`request ${req.method} ${req.url}`);
   if (req.method === 'POST') {
     const parsedUrl = url.parse(req.url, true);
 
@@ -54,7 +56,7 @@ const server = http.createServer(function (req, res) {
         try {
           const payload = JSON.parse(body);
           if (payload.repository.repo_name === process.env.DHH_REPO && payload.push_data.tag === process.env.DHH_TAG) {
-            log('executing command');
+            logger.info('executing command');
             cp.exec(process.env.DHH_CMD, {
               cwd: process.env.DHH_CWD
             }, function (err, stdout, stderr) {
@@ -62,19 +64,19 @@ const server = http.createServer(function (req, res) {
               var code = 200;
 
               if (err) {
-                error(err);
+                logger.error(err);
                 state = 'failure';
                 code = 500;
               } else {
-                log(stdout);
-                log(stderr);
+                logger.info(stdout);
+                logger.error(stderr);
               }
 
               validate(payload.callback_url, state, (err, statusCode) => {
                 if (err) {
-                  error(err);
+                  logger.error(err);
                 }
-                log(`webhook callback response: ${statusCode}`);
+                logger.info(`webhook callback response: ${statusCode}`);
                 reply(res, code);
               });
             });
@@ -82,7 +84,7 @@ const server = http.createServer(function (req, res) {
             throw new Error('Mismatched repo or tag in payload');
           }
         } catch (e) {
-          error(e);
+          logger.error(e);
           reply(res, 400);
         }
       });
@@ -95,5 +97,5 @@ const server = http.createServer(function (req, res) {
 });
 
 server.listen(process.env.DHH_PORT, () => {
-  log('Server listening on ', JSON.stringify(server.address()));
+  logger.info('Server listening on ', JSON.stringify(server.address()));
 });
